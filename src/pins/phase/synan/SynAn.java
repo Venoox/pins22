@@ -1,9 +1,13 @@
 package pins.phase.synan;
 
+import pins.common.report.Location;
 import pins.common.report.Report;
 import pins.data.symbol.Symbol;
 import pins.data.symbol.Token;
 import pins.phase.lexan.*;
+import pins.data.ast.*;
+
+import java.util.Vector;
 
 public class SynAn implements AutoCloseable {
 	private final LexAn lexan;
@@ -18,156 +22,190 @@ public class SynAn implements AutoCloseable {
 		lexan.close();
 	}
 	
-	public void parser() {
-		parsePRG();
+	public AST parser() {
+		Vector<AstDecl> decls = parsePRG();
+		assert decls != null;
+		return new ASTs<AstDecl>(new Location(decls.firstElement().location, decls.lastElement().location), decls);
 	}
 
 	private void remove() {
 		curr = lexan.lexer();
 	}
 
-	private void parsePRG() {
+	private Vector<AstDecl> parsePRG() {
 		switch (curr.token) {
 			case TYP:
 			case FUN:
 			case VAR:
-				System.out.println("PRG -> DECL PRG'");
-				parseDECL();
-				parseOptionalPRG();
-				break;
+				// PRG -> DECL PRG'
+				AstDecl decl = parseDECL();
+				Vector<AstDecl> decls = parseOptionalPRG();
+				assert decls != null;
+				decls.insertElementAt(decl, 0);
+				return decls;
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalPRG() {
+	private Vector<AstDecl> parseOptionalPRG() {
 		switch (curr.token) {
 			case TYP:
 			case FUN:
 			case VAR:
-				System.out.println("PRG' -> PRG");
-				parsePRG();
-				break;
+				// PRG' -> PRG
+				return parsePRG();
 			case RPAREN:
 			case EOF:
-				System.out.println("PRG' -> ");
-				break;
+				// PRG' ->
+				return new Vector<>();
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseDECL() {
+	private AstDecl parseDECL() {
+		Location startLoc = curr.location;
+		Location endLoc;
 		switch (curr.token) {
 			case TYP:
-				System.out.println("DECL -> typ identifier = TYPE ;");
+				// DECL -> typ identifier = TYPE ;
 				remove();
+				String name = curr.lexeme;
 				checkAndRemove(Token.IDENTIFIER);
 				checkAndRemove(Token.EQUAL);
-				parseTYPE();
+				AstType type = parseTYPE();
+				endLoc = curr.location;
 				checkAndRemove(Token.SEMIC);
-				break;
+				return new AstTypDecl(new Location(startLoc, endLoc), name, type);
 			case VAR:
-				System.out.println("DECL -> var identifier : TYPE ;");
+				// DECL -> var identifier : TYPE ;
 				remove();
+				name = curr.lexeme;
 				checkAndRemove(Token.IDENTIFIER);
 				checkAndRemove(Token.COLON);
-				parseTYPE();
+				type = parseTYPE();
+				endLoc = curr.location;
 				checkAndRemove(Token.SEMIC);
-				break;
+				return new AstVarDecl(new Location(startLoc, endLoc), name, type);
 			case FUN:
-				System.out.println("DECL -> fun identifier ( PARAMS ) : TYPE = EXPR ;");
+				// DECL -> fun identifier ( PARAMS ) : TYPE = EXPR ;
 				remove();
+				name = curr.lexeme;
 				checkAndRemove(Token.IDENTIFIER);
+				Location startParamsLoc = curr.location;
 				checkAndRemove(Token.LPAREN);
-				parsePARAMS();
+				Vector<AstParDecl> params = parsePARAMS();
+				Location endParamsLoc = curr.location;
 				checkAndRemove(Token.RPAREN);
 				checkAndRemove(Token.COLON);
-				parseTYPE();
+				type = parseTYPE();
 				checkAndRemove(Token.EQUAL);
-				parseEXPR();
+				AstExpr expr = parseEXPR();
+				endLoc = curr.location;
 				checkAndRemove(Token.SEMIC);
-				break;
+				assert params != null;
+				return new AstFunDecl(new Location(startLoc, endLoc), name, new ASTs<>(new Location(startParamsLoc, endParamsLoc), params), type, expr);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parsePARAMS() {
+	private Vector<AstParDecl> parsePARAMS() {
 		switch (curr.token) {
 			case IDENTIFIER:
-				System.out.println("PARAMS -> identifier : TYPE PARAMS*");
+				// PARAMS -> identifier : TYPE PARAMS*
+				Location startLoc = curr.location;
+				String name = curr.lexeme;
 				remove();
 				checkAndRemove(Token.COLON);
-				parseTYPE();
-				parseOptionalPARAMS();
-				break;
+				AstType type = parseTYPE();
+				Vector<AstParDecl> params = parseOptionalPARAMS();
+				assert params != null;
+				assert type != null;
+				params.insertElementAt(new AstParDecl(new Location(startLoc, type.location), name, type), 0);
+				return params;
 			case RPAREN:
-				System.out.println("PARAMS -> ");
-				break;
+				// PARAMS ->
+				return new Vector<>();
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalPARAMS() {
+	private Vector<AstParDecl> parseOptionalPARAMS() {
 		switch (curr.token) {
 			case COMMA:
-				System.out.println("PARAMS* -> , identifier : TYPE PARAMS*");
+				// PARAMS* -> , identifier : TYPE PARAMS*
 				remove();
+				Location startLoc = curr.location;
+				String name = curr.lexeme;
 				checkAndRemove(Token.IDENTIFIER);
 				checkAndRemove(Token.COLON);
-				parseTYPE();
-				parseOptionalPARAMS();
-				break;
+				AstType type = parseTYPE();
+				Vector<AstParDecl> params = parseOptionalPARAMS();
+				assert params != null;
+				assert type != null;
+				params.insertElementAt(new AstParDecl(new Location(startLoc, type.location), name, type), 0);
+				return params;
 			case RPAREN:
-				System.out.println("PARAMS* -> ");
-				break;
+				// PARAMS* ->
+				return new Vector<>();
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseTYPE() {
+	private AstType parseTYPE() {
+		Location startLoc = curr.location;
 		switch (curr.token) {
 			case IDENTIFIER:
-				System.out.println("TYPE -> identifier");
+				// TYPE -> identifier
+				String name = curr.lexeme;
 				remove();
-				break;
+				return new AstTypeName(startLoc, name);
 			case VOID:
-				System.out.println("TYPE -> void");
+				// TYPE -> void
 				remove();
-				break;
+				return new AstAtomType(startLoc, AstAtomType.Kind.VOID);
 			case CHAR:
-				System.out.println("TYPE -> char");
+				// TYPE -> char
 				remove();
-				break;
+				return new AstAtomType(startLoc, AstAtomType.Kind.CHAR);
 			case INT:
-				System.out.println("TYPE -> int");
+				// TYPE -> int
 				remove();
-				break;
+				return new AstAtomType(startLoc, AstAtomType.Kind.INT);
 			case LPAREN:
-				System.out.println("TYPE -> ( TYPE )");
+				// TYPE -> ( TYPE )
 				remove();
-				parseTYPE();
+				AstType type = parseTYPE();
 				checkAndRemove(Token.RPAREN);
-				break;
+				return type;
 			case CARAT:
-				System.out.println("TYPE -> ^ TYPE");
+				// TYPE -> ^ TYPE
 				remove();
-				parseTYPE();
-				break;
+				type = parseTYPE();
+				assert type != null;
+				return new AstPtrType(new Location(startLoc, type.location), type);
 			case LBRACKET:
-				System.out.println("TYPE -> [ EXPR ] TYPE");
+				// TYPE -> [ EXPR ] TYPE
 				remove();
-				parseEXPR();
+				AstExpr expr = parseEXPR();
 				checkAndRemove(Token.RBRACKET);
-				parseTYPE();
-				break;
+				type = parseTYPE();
+				assert type != null;
+				return new AstArrType(new Location(startLoc, type.location), type, expr);
 		}
+		return null;
 	}
 
-	private void parseEXPR() {
+	private AstExpr parseEXPR() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -182,16 +220,17 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("EXPR -> N EXPR'");
-				parseN();
-				parseOptionalEXPR();
-				break;
+				// EXPR -> N EXPR'
+				AstExpr expr1 = parseN();
+				return parseOptionalEXPR(expr1);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalEXPR() {
+	private AstExpr parseOptionalEXPR(AstExpr expr1) {
+		AstBinExpr.Oper binOp;
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -202,20 +241,23 @@ public class SynAn implements AutoCloseable {
 			case WHERE:
 			case THEN:
 			case DO:
-				System.out.println("EXPR' -> ");
-				break;
+				// EXPR' ->
+				return expr1;
 			case OR:
-				System.out.println("EXPR' -> | N EXPR'");
-				remove();
-				parseN();
-				parseOptionalEXPR();
+				// EXPR' -> | N EXPR'
+				binOp = AstBinExpr.Oper.OR;
 				break;
 			default:
 				error();
+				return null;
 		}
+		remove();
+		AstExpr expr2 = parseN();
+		assert expr2 != null;
+		return parseOptionalEXPR(new AstBinExpr(new Location(expr1.location, expr2.location), binOp, expr1, expr2));
 	}
 
-	private void parseN() {
+	private AstExpr parseN() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -230,16 +272,17 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("N -> T N'");
-				parseT();
-				parseOptionalN();
-				break;
+				// N -> T N'
+				AstExpr expr1 = parseT();
+				return parseOptionalN(expr1);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalN() {
+	private AstExpr parseOptionalN(AstExpr expr1) {
+		AstBinExpr.Oper binOp;
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -251,20 +294,23 @@ public class SynAn implements AutoCloseable {
 			case THEN:
 			case DO:
 			case OR:
-				System.out.println("N' -> ");
-				break;
+				// N' ->
+				return expr1;
 			case AND:
-				System.out.println("N' -> & T N'");
-				remove();
-				parseT();
-				parseOptionalN();
+				// N' -> & T N'
+				binOp = AstBinExpr.Oper.AND;
 				break;
 			default:
 				error();
+				return null;
 		}
+		remove();
+		AstExpr expr2 = parseT();
+		assert expr2 != null;
+		return parseOptionalN(new AstBinExpr(new Location(expr1.location, expr2.location), binOp, expr1, expr2));
 	}
 
-	private void parseT() {
+	private AstExpr parseT() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -279,16 +325,17 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("T -> F T'");
-				parseF();
-				parseOptionalT();
-				break;
+				// T -> F T'
+				AstExpr expr1 = parseF();
+				return parseOptionalT(expr1);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalT() {
+	private AstExpr parseOptionalT(AstExpr expr1) {
+		AstBinExpr.Oper binOp;
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -301,50 +348,43 @@ public class SynAn implements AutoCloseable {
 			case DO:
 			case OR:
 			case AND:
-				System.out.println("T' -> ");
-				break;
+				// T' ->
+				return expr1;
 			case EQUAL_EQUAL:
-				System.out.println("T' -> == F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> == F T'
+				binOp = AstBinExpr.Oper.EQU;
 				break;
 			case NOT_EQUAL:
-				System.out.println("T' -> != F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> != F T'
+				binOp = AstBinExpr.Oper.NEQ;
 				break;
 			case LESS:
-				System.out.println("T' -> < F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> < F T'
+				binOp = AstBinExpr.Oper.LTH;
 				break;
 			case GREATER:
-				System.out.println("T' -> > F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> > F T'
+				binOp = AstBinExpr.Oper.GTH;
 				break;
 			case LESS_EQUAL:
-				System.out.println("T' -> <= F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> <= F T'
+				binOp = AstBinExpr.Oper.LEQ;
 				break;
 			case GREATER_EQUAL:
-				System.out.println("T' -> >= F T'");
-				remove();
-				parseF();
-				parseOptionalT();
+				// T' -> >= F T'
+				binOp = AstBinExpr.Oper.GEQ;
 				break;
 			default:
 				error();
+				return null;
 		}
+		remove();
+		AstExpr expr2 = parseF();
+		assert expr2 != null;
+		return parseOptionalT(new AstBinExpr(new Location(expr1.location, expr2.location), binOp, expr1, expr2));
 	}
 
-	private void parseF() {
+	private AstExpr parseF() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -359,78 +399,17 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("F -> G F'");
-				parseG();
-				parseOptionalF();
-				break;
+				// F -> G F'
+				AstExpr expr1 = parseG();
+				return parseOptionalF(expr1);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalF() {
-		switch (curr.token) {
-			case EQUAL:
-			case SEMIC:
-			case COLON:
-			case RPAREN:
-			case COMMA:
-			case RBRACKET:
-			case WHERE:
-			case THEN:
-			case DO:
-			case OR:
-			case AND:
-			case EQUAL_EQUAL:
-			case NOT_EQUAL:
-			case LESS:
-			case GREATER:
-			case LESS_EQUAL:
-			case GREATER_EQUAL:
-				System.out.println("F' -> ");
-				break;
-			case PLUS:
-				System.out.println("F' -> + G F'");
-				remove();
-				parseG();
-				parseOptionalF();
-				break;
-			case MINUS:
-				System.out.println("F' -> - G F'");
-				remove();
-				parseG();
-				parseOptionalF();
-				break;
-			default:
-				error();
-		}
-	}
-
-	private void parseG() {
-		switch (curr.token) {
-			case IDENTIFIER:
-			case LPAREN:
-			case CARAT:
-			case PLUS:
-			case MINUS:
-			case NOT:
-			case CONST_CHAR:
-			case CONST_INT:
-			case CONST_NIL:
-			case CONST_NONE:
-			case NEW:
-			case DEL:
-			case LBRACES:
-				System.out.println("G -> M G'");
-				parseM();
-				parseOptionalG();
-				break;
-			default:
-				error();
-		}
-	}
-
-	private void parseOptionalG() {
+	private AstExpr parseOptionalF(AstExpr expr1) {
+		AstBinExpr.Oper binOp;
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -449,34 +428,97 @@ public class SynAn implements AutoCloseable {
 			case GREATER:
 			case LESS_EQUAL:
 			case GREATER_EQUAL:
+				// F' ->
+				return expr1;
+			case PLUS:
+				// F' -> + G F'
+				binOp = AstBinExpr.Oper.ADD;
+				break;
+			case MINUS:
+				// F' -> - G F'
+				binOp = AstBinExpr.Oper.SUB;
+				break;
+			default:
+				error();
+				return null;
+		}
+		remove();
+		AstExpr expr2 = parseG();
+		assert expr2 != null;
+		return parseOptionalF(new AstBinExpr(new Location(expr1.location, expr2.location), binOp, expr1, expr2));
+	}
+
+	private AstExpr parseG() {
+		switch (curr.token) {
+			case IDENTIFIER:
+			case LPAREN:
+			case CARAT:
 			case PLUS:
 			case MINUS:
-				System.out.println("F' -> ");
-				break;
+			case NOT:
+			case CONST_CHAR:
+			case CONST_INT:
+			case CONST_NIL:
+			case CONST_NONE:
+			case NEW:
+			case DEL:
+			case LBRACES:
+				// G -> M G'
+				AstExpr expr1 = parseM();
+				return parseOptionalG(expr1);
+			default:
+				error();
+		}
+		return null;
+	}
+
+	private AstExpr parseOptionalG(AstExpr expr1) {
+		AstBinExpr.Oper binOp;
+		switch (curr.token) {
+			case EQUAL:
+			case SEMIC:
+			case COLON:
+			case RPAREN:
+			case COMMA:
+			case RBRACKET:
+			case WHERE:
+			case THEN:
+			case DO:
+			case OR:
+			case AND:
+			case EQUAL_EQUAL:
+			case NOT_EQUAL:
+			case LESS:
+			case GREATER:
+			case LESS_EQUAL:
+			case GREATER_EQUAL:
+			case PLUS:
+			case MINUS:
+				// F' ->
+				return expr1;
 			case MUL:
-				System.out.println("G' -> * M G'");
-				remove();
-				parseM();
-				parseOptionalG();
+				// G' -> * M G'
+				binOp = AstBinExpr.Oper.MUL;
 				break;
 			case DIV:
-				System.out.println("G' -> / M G'");
-				remove();
-				parseM();
-				parseOptionalG();
+				// G' -> / M G'
+				binOp = AstBinExpr.Oper.DIV;
 				break;
 			case MOD:
-				System.out.println("G' -> % M G'");
-				remove();
-				parseM();
-				parseOptionalG();
+				// G' -> % M G'
+				binOp = AstBinExpr.Oper.MOD;
 				break;
 			default:
 				error();
+				return null;
 		}
+		remove();
+		AstExpr expr2 = parseM();
+		assert expr2 != null;
+		return parseOptionalG(new AstBinExpr(new Location(expr1.location, expr2.location), binOp, expr1, expr2));
 	}
 
-	private void parseM() {
+	private AstExpr parseM() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -491,16 +533,22 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("M -> PRE' PO");
-				parseOptionalPrefix();
-				parsePostfix();
-				break;
+				// M -> PRE' PO
+				Vector<AstPreExpr.Oper> preOpers = parseOptionalPrefix();
+				assert preOpers != null;
+				AstExpr expr = parsePostfix();
+				assert expr != null;
+				for (int i = preOpers.size()-1; i >= 0; i--) {
+					expr = new AstPreExpr(expr.location, preOpers.get(i), expr); // TODO: fix location
+				}
+				return expr;
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalPrefix() {
+	private Vector<AstPreExpr.Oper> parseOptionalPrefix() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -511,34 +559,43 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("PRE' -> ");
-				break;
+				// PRE' ->
+				return new Vector<>();
 			case NOT:
-				System.out.println("PRE' -> ! PRE'");
+				// PRE' -> ! PRE'
 				remove();
-				parseOptionalPrefix();
-				break;
+				Vector<AstPreExpr.Oper> preOpers = parseOptionalPrefix();
+				assert preOpers != null;
+				preOpers.insertElementAt(AstPreExpr.Oper.NOT, 0);
+				return preOpers;
 			case PLUS:
-				System.out.println("PRE' -> + PRE'");
+				// PRE' -> + PRE'
 				remove();
-				parseOptionalPrefix();
-				break;
+				preOpers = parseOptionalPrefix();
+				assert preOpers != null;
+				preOpers.insertElementAt(AstPreExpr.Oper.ADD, 0);
+				return preOpers;
 			case MINUS:
-				System.out.println("PRE' -> - PRE'");
+				// PRE' -> - PRE'
 				remove();
-				parseOptionalPrefix();
-				break;
+				preOpers = parseOptionalPrefix();
+				assert preOpers != null;
+				preOpers.insertElementAt(AstPreExpr.Oper.SUB, 0);
+				return preOpers;
 			case CARAT:
-				System.out.println("PRE' -> ^ PRE'");
+				// PRE' -> ^ PRE'
 				remove();
-				parseOptionalPrefix();
-				break;
+				preOpers = parseOptionalPrefix();
+				assert preOpers != null;
+				preOpers.insertElementAt(AstPreExpr.Oper.PTR, 0);
+				return preOpers;
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parsePostfix() {
+	private AstExpr parsePostfix() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -549,16 +606,16 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("PO -> E PO'");
-				parseE();
-				parseOptionalPostfix();
-				break;
+				// PO -> E PO'
+				AstExpr expr = parseE();
+				return parseOptionalPostfix(expr);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalPostfix() {
+	private AstExpr parseOptionalPostfix(AstExpr expr) {
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -582,78 +639,90 @@ public class SynAn implements AutoCloseable {
 			case MUL:
 			case DIV:
 			case MOD:
-				System.out.println("PO' -> ");
-				break;
+				// PO' ->
+				return expr;
 			case LBRACKET:
-				System.out.println("PO' -> [ EXPR ] PO'");
+				// PO' -> [ EXPR ] PO'
 				remove();
-				parseEXPR();
+				AstExpr arrExpr = parseEXPR();
+				assert arrExpr != null;
+				Location endLoc = curr.location;
 				checkAndRemove(Token.RBRACKET);
-				parseOptionalPostfix();
-				break;
+				expr = new AstBinExpr(new Location(expr.location, endLoc), AstBinExpr.Oper.ARR, expr, arrExpr);
+				return parseOptionalPostfix(expr);
 			case CARAT:
-				System.out.println("PO' -> ^ PO'");
+				// PO' -> ^ PO'
+				endLoc = curr.location;
 				remove();
-				parseOptionalPostfix();
-				break;
+				expr = new AstPstExpr(new Location(expr.location, endLoc), AstPstExpr.Oper.PTR, expr);
+				return parseOptionalPostfix(expr);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseE() {
+	private AstExpr parseE() {
+		Token token = curr.token;
+		Location startLoc = curr.location;
+		String name = curr.lexeme;
 		switch (curr.token) {
 			case IDENTIFIER:
-				System.out.println("E -> identifier CALL");
+				// E -> identifier CALL
 				remove();
-				parseCALL();
-				break;
+				return parseOptionalCall(new Symbol(token, name, startLoc));
 			case LPAREN:
-				System.out.println("E -> ( EXPR E' )");
+				// E -> ( EXPR E' )
 				remove();
-				parseEXPR();
-				parseOptionalE();
+				AstExpr expr = parseEXPR();
+				expr = parseOptionalE(expr);
 				checkAndRemove(Token.RPAREN);
-				break;
+				return expr;
 			case CONST_CHAR:
-				System.out.println("E -> const_char");
+				// E -> const_char
 				remove();
-				break;
+				return new AstConstExpr(startLoc, AstConstExpr.Kind.CHAR, name);
 			case CONST_INT:
-				System.out.println("E -> const_int");
+				// E -> const_int
 				remove();
-				break;
+				return new AstConstExpr(startLoc, AstConstExpr.Kind.INT, name);
 			case CONST_NIL:
-				System.out.println("E -> const_nil");
+				// E -> const_nil
 				remove();
-				break;
+				return new AstConstExpr(startLoc, AstConstExpr.Kind.PTR, name);
 			case CONST_NONE:
-				System.out.println("E -> const_none");
+				// E -> const_none
 				remove();
-				break;
+				return new AstConstExpr(startLoc, AstConstExpr.Kind.VOID, name);
 			case NEW:
-				System.out.println("E -> new E");
+				// E -> new E
 				remove();
-				parseE();
-				break;
+				expr = parseE();
+				assert expr != null;
+				return new AstPreExpr(new Location(startLoc, expr.location), AstPreExpr.Oper.NEW, expr);
 			case DEL:
-				System.out.println("E -> del E");
+				// E -> del E
 				remove();
-				parseE();
-				break;
+				expr = parseE();
+				assert expr != null;
+				return new AstPreExpr(new Location(startLoc, expr.location), AstPreExpr.Oper.DEL, expr);
 			case LBRACES:
-				System.out.println("E -> { STMT STMT* }");
+				// E -> { STMT STMT* }
 				remove();
-				parseSTMT();
-				parseOptionalSTMT();
+				AstStmt stmt = parseSTMT();
+				Vector<AstStmt> stmts = parseOptionalSTMT();
+				assert stmts != null;
+				stmts.insertElementAt(stmt, 0);
+				Location endLoc = curr.location;
 				checkAndRemove(Token.RBRACES);
-				break;
+				return new AstStmtExpr(new Location(startLoc, endLoc), new ASTs<>(stmts.size() > 0 ? new Location(stmts.firstElement().location, stmts.lastElement().location) : new Location(startLoc, endLoc), stmts));
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseCALL() {
+	private AstExpr parseOptionalCall(Symbol symbol) {
 		switch (curr.token) {
 			case EQUAL:
 			case SEMIC:
@@ -679,24 +748,28 @@ public class SynAn implements AutoCloseable {
 			case MOD:
 			case LBRACKET:
 			case CARAT:
-				System.out.println("CALL -> ");
-				break;
+				// CALL ->
+				return new AstNameExpr(symbol.location, symbol.lexeme);
 			case LPAREN:
-				System.out.println("CALL -> ( ARG )");
+				// CALL -> ( ARG )
+				Location startLoc = curr.location;
 				remove();
-				parseARG();
+				Vector<AstExpr> args = parseARG();
+				Location endLoc = curr.location;
 				checkAndRemove(Token.RPAREN);
-				break;
+				assert args != null;
+				return new AstCallExpr(new Location(symbol.location, endLoc), symbol.lexeme, new ASTs<>(new Location(startLoc, endLoc), args));
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseARG() {
+	private Vector<AstExpr> parseARG() {
 		switch (curr.token) {
 			case RPAREN:
-				System.out.println("ARG -> .");
-				break;
+				// ARG -> .
+				return new Vector<>();
 			case IDENTIFIER:
 			case LPAREN:
 			case CARAT:
@@ -710,52 +783,64 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("ARG -> EXPR ARG'");
-				parseEXPR();
-				parseOptionalARG();
-				break;
+				// ARG -> EXPR ARG'
+				AstExpr expr = parseEXPR();
+				Vector<AstExpr> args = parseOptionalARG();
+				assert args != null;
+				args.insertElementAt(expr, 0);
+				return args;
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalARG() {
+	private Vector<AstExpr> parseOptionalARG() {
 		switch (curr.token) {
 			case RPAREN:
-				System.out.println("ARG' -> ");
-				break;
+				// ARG' ->
+				return new Vector<>();
 			case COMMA:
-				System.out.println("ARG' -> , EXPR ARG'");
+				// ARG' -> , EXPR ARG'
 				remove();
-				parseEXPR();
-				parseOptionalARG();
-				break;
+				AstExpr expr = parseEXPR();
+				Vector<AstExpr> args = parseOptionalARG();
+				assert args != null;
+				args.insertElementAt(expr, 0);
+				return args;
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalE() {
+	private AstExpr parseOptionalE(AstExpr expr) {
 		switch (curr.token) {
 			case COLON:
-				System.out.println("E' -> : TYPE");
+				// E' -> : TYPE
 				remove();
-				parseTYPE();
-				break;
+				AstType type = parseTYPE();
+				assert type != null;
+				return new AstCastExpr(new Location(expr.location, type.location), expr, type);
 			case RPAREN:
-				System.out.println("E' -> ");
-				break;
+				// E' ->
+				return expr;
 			case WHERE:
-				System.out.println("E' -> where PRG");
+				// E' -> where PRG
 				remove();
-				parsePRG();
-				break;
+				Vector<AstDecl> decls = parsePRG();
+				Location endLoc = curr.location;
+				assert decls != null;
+				assert decls.size() > 0;
+				return new AstWhereExpr(new Location(expr.location, endLoc), new ASTs<>(new Location(decls.firstElement().location, decls.lastElement().location), decls), expr);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseSTMT() {
+	private AstStmt parseSTMT() {
+		Location startLoc = curr.location;
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -770,53 +855,66 @@ public class SynAn implements AutoCloseable {
 			case NEW:
 			case DEL:
 			case LBRACES:
-				System.out.println("STMT -> EXPR STMT' ;");
-				parseEXPR();
-				parseOptionalAssigment();
+				// STMT -> EXPR STMT' ;
+				AstExpr expr = parseEXPR();
+				AstStmt stmt = parseOptionalAssigment(expr);
 				checkAndRemove(Token.SEMIC);
-				break;
+				return stmt;
 			case IF:
-				System.out.println("STMT -> if EXPR then STMT STMT* ELSE end ;");
+				// STMT -> if EXPR then STMT STMT* ELSE end ;
 				remove();
-				parseEXPR();
+				expr = parseEXPR();
+				assert expr != null;
 				checkAndRemove(Token.THEN);
-				parseSTMT();
-				parseOptionalSTMT();
-				parseELSE();
+				stmt = parseSTMT();
+				Vector<AstStmt> stmts = parseOptionalSTMT();
+				assert stmts != null;
+				stmts.insertElementAt(stmt, 0);
+				AstStmtExpr ifStmtExpr = new AstStmtExpr(new Location(stmts.firstElement().location, stmts.lastElement().location), new ASTs<>(new Location(stmts.firstElement().location, stmts.lastElement().location), stmts));
+				AstStmtExpr elseStmtExpr = parseELSE();
 				checkAndRemove(Token.END);
+				Location endLoc = curr.location;
 				checkAndRemove(Token.SEMIC);
-				break;
+				return new AstIfStmt(new Location(startLoc, endLoc), expr, new AstExprStmt(ifStmtExpr.location, ifStmtExpr), elseStmtExpr != null ? new AstExprStmt(elseStmtExpr.location, elseStmtExpr) : null);
 			case WHILE:
-				System.out.println("STMT -> while EXPR do STMT STMT* end ;");
+				// STMT -> while EXPR do STMT STMT* end ;
 				remove();
-				parseEXPR();
+				expr = parseEXPR();
+				assert expr != null;
 				checkAndRemove(Token.DO);
-				parseSTMT();
-				parseOptionalSTMT();
+				stmt = parseSTMT();
+				stmts = parseOptionalSTMT();
+				assert stmts != null;
+				stmts.insertElementAt(stmt, 0);
+				AstStmtExpr stmtExpr = new AstStmtExpr(new Location(stmts.firstElement().location, stmts.lastElement().location), new ASTs<>(new Location(stmts.firstElement().location, stmts.lastElement().location), stmts));
 				checkAndRemove(Token.END);
+				endLoc = curr.location;
 				checkAndRemove(Token.SEMIC);
-				break;
+				return new AstWhileStmt(new Location(startLoc, endLoc), expr, new AstExprStmt(stmtExpr.location, stmtExpr));
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalAssigment() {
+	private AstStmt parseOptionalAssigment(AstExpr expr1) {
 		switch (curr.token) {
 			case EQUAL:
-				System.out.println("STMT' -> = EXPR");
+				// STMT' -> = EXPR
 				remove();
-				parseEXPR();
-				break;
+				AstExpr expr2 = parseEXPR();
+				assert expr2 != null;
+				return new AstAssignStmt(new Location(expr1.location, expr2.location), expr1, expr2);
 			case SEMIC:
-				System.out.println("STMT' -> ");
-				break;
+				// STMT' ->
+				return new AstExprStmt(expr1.location, expr1);
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseOptionalSTMT() {
+	private Vector<AstStmt> parseOptionalSTMT() {
 		switch (curr.token) {
 			case IDENTIFIER:
 			case LPAREN:
@@ -833,34 +931,40 @@ public class SynAn implements AutoCloseable {
 			case LBRACES:
 			case IF:
 			case WHILE:
-				System.out.println("STMT* -> STMT STMT*");
-				parseSTMT();
-				parseOptionalSTMT();
-				break;
+				// STMT* -> STMT STMT*
+				AstStmt stmt = parseSTMT();
+				Vector<AstStmt> stmts = parseOptionalSTMT();
+				assert stmts != null;
+				stmts.insertElementAt(stmt, 0);
+				return stmts;
 			case RBRACES:
 			case END:
 			case ELSE:
-				System.out.println("STMT* -> ");
-				break;
+				// STMT* ->
+				return new Vector<>();
 			default:
 				error();
 		}
+		return null;
 	}
 
-	private void parseELSE() {
+	private AstStmtExpr parseELSE() {
 		switch (curr.token) {
 			case END:
-				System.out.println("ELSE -> ");
-				break;
+				// ELSE ->
+				return null;
 			case ELSE:
-				System.out.println("ELSE -> else STMT STMT*");
+				// ELSE -> else STMT STMT*
 				remove();
-				parseSTMT();
-				parseOptionalSTMT();
-				break;
+				AstStmt stmt = parseSTMT();
+				Vector<AstStmt> stmts = parseOptionalSTMT();
+				assert stmts != null;
+				stmts.insertElementAt(stmt, 0);
+				return new AstStmtExpr(new Location(stmts.firstElement().location, stmts.lastElement().location), new ASTs<>(new Location(stmts.firstElement().location, stmts.lastElement().location), stmts));
 			default:
 				error();
 		}
+		return null;
 	}
 
 	private void checkAndRemove(Token token) {
