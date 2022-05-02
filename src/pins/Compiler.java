@@ -4,6 +4,7 @@ import java.util.*;
 import pins.common.report.*;
 import pins.data.ast.*;
 import pins.phase.lexan.*;
+import pins.phase.seman.*;
 import pins.phase.synan.*;
 
 /**
@@ -12,7 +13,7 @@ import pins.phase.synan.*;
 public class Compiler {
 
 	/** All phases of the compiler. */
-	private static final String phases = "none|lexan|synan|abstr";
+	private static final String phases = "none|lexan|synan|abstr|seman";
 
 	/** Values of command line arguments. */
 	private static HashMap<String, String> cmdLine = new HashMap<String, String>();
@@ -94,6 +95,15 @@ public class Compiler {
 
 				// Abstract syntax.
 				if (cmdLine.get("--target-phase").equals("abstr")) {
+					ast.log("");
+					break;
+				}
+
+				// Semantic analysis.
+				try (SemAn seman = new SemAn()) {
+					ast.accept(new NameResolver(), null);
+				}
+				if (cmdLine.get("--target-phase").equals("seman")) {
 					ast.log("");
 					break;
 				}
