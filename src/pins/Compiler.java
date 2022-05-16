@@ -6,6 +6,7 @@ import pins.data.ast.*;
 import pins.phase.lexan.*;
 import pins.phase.seman.*;
 import pins.phase.synan.*;
+import pins.phase.memory.*;
 
 /**
  * The PINS'22 compiler.
@@ -13,7 +14,7 @@ import pins.phase.synan.*;
 public class Compiler {
 
 	/** All phases of the compiler. */
-	private static final String phases = "none|lexan|synan|abstr|seman";
+	private static final String phases = "none|lexan|synan|abstr|seman|memory";
 
 	/** Values of command line arguments. */
 	private static HashMap<String, String> cmdLine = new HashMap<String, String>();
@@ -108,12 +109,21 @@ public class Compiler {
 					ast.log("");
 					break;
 				}
+
+				try (Memory memory = new Memory()) {
+					ast.accept(new MemEvaluator(), null);
+				}
+				if (cmdLine.get("--target-phase").equals("memory")) {
+					ast.log("");
+					break;
+				}
+
 			}
 
 			Report.info("Done.");
 		} catch (
 
-		Report.Error __) {
+				Report.Error __) {
 			System.exit(1);
 		}
 	}

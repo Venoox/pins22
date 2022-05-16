@@ -16,7 +16,7 @@ public class AstConstExpr extends AstExpr {
 
 	public final String name;
 
-	public AstConstExpr(Location location, Kind kind, String name) {
+	public AstConstExpr(Location location, AstConstExpr.Kind kind, String name) {
 		super(location);
 		this.kind = kind;
 		this.name = name;

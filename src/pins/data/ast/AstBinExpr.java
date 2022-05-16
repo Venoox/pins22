@@ -12,13 +12,13 @@ public class AstBinExpr extends AstExpr {
 		AND, OR, EQU, NEQ, LTH, GTH, LEQ, GEQ, MUL, DIV, MOD, ADD, SUB, ARR
 	};
 	
-	public final Oper oper;
+	public final AstBinExpr.Oper oper;
 	
 	public final AstExpr fstSubExpr;
 	
 	public final AstExpr sndSubExpr;
 	
-	public AstBinExpr(Location location, Oper oper, AstExpr fstSubExpr, AstExpr sndSubExpr) {
+	public AstBinExpr(Location location, AstBinExpr.Oper oper, AstExpr fstSubExpr, AstExpr sndSubExpr) {
 		super(location);
 		this.oper = oper;
 		this.fstSubExpr = fstSubExpr;

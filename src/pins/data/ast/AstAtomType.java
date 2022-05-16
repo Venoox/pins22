@@ -14,7 +14,7 @@ public class AstAtomType extends AstType {
 
 	public final Kind kind;
 
-	public AstAtomType(Location location, Kind kind) {
+	public AstAtomType(Location location, AstAtomType.Kind kind) {
 		super(location);
 		this.kind = kind;
 	}

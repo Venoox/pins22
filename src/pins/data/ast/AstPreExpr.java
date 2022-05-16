@@ -12,11 +12,11 @@ public class AstPreExpr extends AstExpr {
 		NEW, DEL, NOT, ADD, SUB, PTR
 	};
 	
-	public final Oper oper;
+	public final AstPreExpr.Oper oper;
 	
 	public final AstExpr subExpr;
 	
-	public AstPreExpr(Location location, Oper oper, AstExpr subExpr) {
+	public AstPreExpr(Location location, AstPreExpr.Oper oper, AstExpr subExpr) {
 		super(location);
 		this.oper = oper;
 		this.subExpr = subExpr;

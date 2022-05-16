@@ -12,11 +12,11 @@ public class AstPstExpr extends AstExpr {
 		PTR
 	};
 	
-	public final Oper oper;
+	public final AstPstExpr.Oper oper;
 	
 	public final AstExpr subExpr;
 	
-	public AstPstExpr(Location location, Oper oper, AstExpr subExpr) {
+	public AstPstExpr(Location location, AstPstExpr.Oper oper, AstExpr subExpr) {
 		super(location);
 		this.oper = oper;
 		this.subExpr = subExpr;
