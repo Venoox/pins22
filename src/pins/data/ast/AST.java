@@ -3,7 +3,10 @@ package pins.data.ast;
 import pins.common.logger.*;
 import pins.common.report.*;
 import pins.data.ast.visitor.*;
+import pins.data.imc.code.expr.ImcExpr;
+import pins.data.imc.code.stmt.ImcStmt;
 import pins.data.typ.*;
+import pins.phase.imcgen.ImcGen;
 import pins.phase.seman.*;
 import pins.data.mem.*;
 import pins.phase.memory.*;
@@ -47,16 +50,26 @@ public abstract class AST implements Loggable {
 		}
 		if (this instanceof AstExpr) {
 			SemType type = SemAn.exprOfType.get((AstExpr) this);
+			ImcExpr expr = ImcGen.exprImc.get((AstExpr) this);
 			if (type != null) {
 				System.out.println(pfx + "  exprOfType:");
 				type.log(pfx + "    ");
 			}
+			if (expr != null) {
+				System.out.println(pfx + "  exprImc:");
+				expr.log(pfx + "    ");
+			}
 		}
 		if (this instanceof AstStmt) {
 			SemType type = SemAn.stmtOfType.get((AstStmt) this);
+			ImcStmt stmt = ImcGen.stmtImc.get((AstStmt) this);
 			if (type != null) {
 				System.out.println(pfx + "  stmtOfType:");
 				type.log(pfx + "    ");
+			}
+			if (stmt != null) {
+				System.out.println(pfx + "  stmtImc:");
+				stmt.log(pfx + "    ");
 			}
 		}
 		if (this instanceof AstFunDecl) {
