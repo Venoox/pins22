@@ -44,9 +44,8 @@ public class SynAn implements AutoCloseable {
 				decls.insertElementAt(decl, 0);
 				return decls;
 			default:
-				error();
+				throw new Report.Error(curr, "Expected 'typ', 'var' or 'fun' but got '" + curr.lexeme + "'");
 		}
-		return null;
 	}
 
 	private Vector<AstDecl> parseOptionalPRG() {
@@ -132,9 +131,8 @@ public class SynAn implements AutoCloseable {
 				// PARAMS ->
 				return new Vector<>();
 			default:
-				error();
+				throw new Report.Error(curr, "Expected IDENTIFIER or ')' but got '" + curr.lexeme + "'");
 		}
-		return null;
 	}
 
 	private Vector<AstParDecl> parseOptionalPARAMS() {
@@ -156,9 +154,8 @@ public class SynAn implements AutoCloseable {
 				// PARAMS* ->
 				return new Vector<>();
 			default:
-				error();
+				throw new Report.Error(curr, "Expected ',' or ')' but got '" + curr.lexeme + "'");
 		}
-		return null;
 	}
 
 	private AstType parseTYPE() {
@@ -809,9 +806,8 @@ public class SynAn implements AutoCloseable {
 				args.insertElementAt(expr, 0);
 				return args;
 			default:
-				error();
+				throw new Report.Error(curr, "Expected ')' or ',' but got '" + curr.lexeme + "'");
 		}
-		return null;
 	}
 
 	private AstExpr parseOptionalE(AstExpr expr) {
@@ -834,9 +830,8 @@ public class SynAn implements AutoCloseable {
 				assert decls.size() > 0;
 				return new AstWhereExpr(new Location(expr.location, endLoc), new ASTs<>(new Location(decls.firstElement().location, decls.lastElement().location), decls), expr);
 			default:
-				error();
+				throw new Report.Error(curr, "Expected ')', ':' or 'where' but got '" + curr.lexeme + "'");
 		}
-		return null;
 	}
 
 	private AstStmt parseSTMT() {
@@ -962,19 +957,18 @@ public class SynAn implements AutoCloseable {
 				stmts.insertElementAt(stmt, 0);
 				return new AstStmtExpr(new Location(stmts.firstElement().location, stmts.lastElement().location), new ASTs<>(new Location(stmts.firstElement().location, stmts.lastElement().location), stmts));
 			default:
-				error();
+				throw new Report.Error(curr, "Expected END or ELSE, got " + curr.lexeme);
 		}
-		return null;
 	}
 
 	private void checkAndRemove(Token token) {
 		if (curr.token == token)
 			remove();
 		else
-			error();
+			throw new Report.Error(curr, "Expected '" + token.toString() + "' but got '" + curr.lexeme + "'");
 	}
 
 	private void error() {
-		throw new Report.Error(curr, "Unexpected token " + curr);
+		throw new Report.Error(curr, "Unexpected token '" + curr.lexeme + "'");
 	}
 }
