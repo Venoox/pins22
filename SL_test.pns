@@ -1,0 +1,9 @@
+
+fun main(): int = {
+    f1(1);
+};
+
+fun f1(n1: int): int =
+    (f2(n1+1) where fun f2(n2: int): int =
+        (f3(n2+1) where fun f3(n3: int): int =
+            (f4(n3+1) where fun f4(n4: int): int = n1 + n2 + n3 + n4;);););

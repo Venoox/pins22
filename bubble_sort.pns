@@ -1,0 +1,150 @@
+#{
+    BUBBLE SORT
+}#
+
+var arr : ^int;
+var n : int;
+
+fun main(): void = {
+    n = 5;
+    arr = (new (n * 8) : ^int);
+    getIdx(arr, 0)^ = 5;
+    getIdx(arr, 1)^ = 1;
+    getIdx(arr, 2)^ = 8;
+    getIdx(arr, 3)^ = 4;
+    getIdx(arr, 4)^ = 5;
+    printArray(arr, n);
+    bubbleSort(arr, n);
+    printArray(arr, n);
+
+};
+
+fun getIdx(arr: ^int, idx: int): ^int = ((arr : int) + idx * 8 : ^int);
+
+fun printArray(arr: ^int, size: int): void = ({
+    i = 0;
+    while i < size do
+        printInt(getIdx(arr, i)^);
+        if i < size - 1 then
+            putChar(','); putChar(' ');
+        end;
+        i = i + 1;
+    end;
+    putChar((10 : char));
+} where
+    var i: int;
+);
+
+fun bubbleSort(arr: ^int, n: int): void = ({
+    i = 0;
+    while i < n - 1 do
+        j = 0;
+        while j < n - i - 1 do
+            if getIdx(arr, j)^ > getIdx(arr, j + 1)^ then
+                swap(getIdx(arr, j), getIdx(arr, j + 1));
+            end;
+
+            j = j + 1;
+        end;
+
+        i = i + 1;
+    end;
+} where
+    var i: int;
+    var j: int;
+    fun swap(x: ^int, y: ^int): void = ({
+        temp = x^;
+        x^ = y^;
+        y^ = temp;
+    } where
+        var temp: int;
+    );
+);
+
+
+
+#{
+#  Reads int from stdin.
+#  Ignores any character that is not a number.
+}#
+fun readInt() : int = ({
+    num = 0;
+    prevC = '0';
+    c = getChar();
+
+    #{ Consume until we get a number }#
+    while c < '0' | c > '9' do
+        prevC = c;
+        c = getChar();
+    end;
+
+    sign = 0;
+    if prevC == '-' then
+        sign = 1;
+    end;
+
+    #{ Parse number }#
+    while c >= '0' & c <= '9' do
+        num = num * 10 + ((c : int) - ('0' : int));
+        c = getChar();
+    end;
+
+    if sign then
+        num = -num;
+    end;
+    num;
+} where
+    var c : char;
+    var prevC : char;
+    var num : int;
+    var sign : int;
+);
+
+#{
+#  Writes int to stdout.
+}#
+fun printInt(num : int) : void = ({
+    rev = 0;
+    numZeros = 0;
+    #{ Handle signedness }#
+    if num < 0 then
+        num = -num;
+        putChar('-');
+    else
+        if num == 0 then
+            numZeros = 1;
+        end;
+    end;
+
+    #{ Reverse number }#
+    while num do
+        rev = rev * 10;
+        rev = rev + (num % 10);
+        num = num / 10;
+        numZeros = numZeros + 1;
+    end;
+
+    #{ Print reversed }#
+    while rev do
+        c = (rev % 10) + ('0' : int);
+        putChar((c : char));
+        rev = rev / 10;
+        numZeros = numZeros - 1;
+    end;
+
+    #{ Print trailing zeros }#
+    while numZeros do
+        putChar('0');
+        numZeros = numZeros - 1;
+    end;
+
+} where
+    var c : int;
+    var rev : int;
+    var numZeros : int;
+);
+
+#{ Forward declaring }#
+fun putChar(c : char) : void = none;
+fun getChar() : char = (0 : char);
+

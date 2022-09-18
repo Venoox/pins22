@@ -1,0 +1,18 @@
+fun main(): int = {
+    fibonacci(20);
+};
+
+fun fibonacci(n: int): int = ({
+    if n == 0 then
+        result = 0;
+    else
+        if n == 1 then
+            result = 1;
+        else
+            result = fibonacci(n-1) + fibonacci(n-2);
+        end;
+    end;
+    result;
+} where
+    var result: int;
+);

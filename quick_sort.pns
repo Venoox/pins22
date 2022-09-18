@@ -1,0 +1,78 @@
+fun putChar(c: char): void = none;
+
+var a : [100]int;
+
+fun main():void = {
+    a[0] = 3;
+    a[1] = 1;
+    a[2] = 2;
+    a[3] = 9;
+    a[4] = 5;
+    a[5] = 1;
+    quicksort(^a, 0, 5);
+
+    println(^a, 6);
+};
+
+
+fun quicksort(a: ^[100]int, left: int, right: int):void = {
+    if (right > left) then
+        ({
+            r = partition(a, left, right);
+            quicksort(a, left, r-1);
+            quicksort(a, r+1, right);
+        } where var r: int;);
+    end;
+};
+
+fun partition(a: ^[100]int, left: int, right: int): int = {
+    ({
+
+        p = a^[left];
+        l = left;
+        r = right + 1;
+
+        while (r > l) do
+
+            l = l + 1;
+            while (a^[l] - p < 0 & l < right) do
+                l = l + 1;
+            end;
+
+            r = r - 1;
+            while (a^[r] - p > 0) do
+                r = r - 1;
+            end;
+
+            if (r > l) then
+                swap (a, l, r);
+            end;
+        end;
+
+        swap(a, left, r);
+        r;
+    } where var p: int; var l: int; var r: int;);
+};
+
+
+fun swap(a: ^[100]int, i: int, j: int):void = {
+    ({
+        t = a^[i];
+        a^[i] = a^[j];
+        a^[j] = t;
+    } where var t: int;);
+};
+
+
+fun println(a: ^[100]int, length: int):void = {
+    (
+        {
+            i = 0;
+            while (i < length) do
+                putChar((48 + a^[i]: char));
+                i = i + 1;
+            end;
+        } where var i: int;
+    );
+    putChar((10: char));
+};

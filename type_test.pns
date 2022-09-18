@@ -1,0 +1,6 @@
+typ t1 = [10]t2;
+typ t2 = ^t1;
+
+fun main(): int = {
+    0;
+};
