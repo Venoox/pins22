@@ -9,6 +9,23 @@ import java.util.Vector;
 
 public class TypeChecker extends AstFullVisitor<Object, Object> {
 
+    @Override
+    public Object visit(ASTs<? extends AST> trees, Object arg) {
+        for (AST t : trees.asts())
+            if (t instanceof AstTypDecl)
+                t.accept(this, 1);
+
+        for (AST t : trees.asts())
+            if (t instanceof AstTypDecl)
+                t.accept(this, 0);
+
+        for (AST t : trees.asts())
+            if (!(t instanceof AstTypDecl))
+                t.accept(this, arg);
+        return null;
+    }
+
+
     private boolean compareTypes(SemType type1, SemType type2) {
         if (type1 instanceof SemInt && type2 instanceof SemInt) {
             return true;
@@ -73,21 +90,21 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
             case DEL:
                 subType = SemAn.exprOfType.get(preExpr.subExpr).actualType();
                 if (!(subType instanceof SemPtr)) {
-                    throw new Report.Error(preExpr.subExpr.location, "Expression should be a pointer");
+                    throw new Report.Error(preExpr.subExpr.location, "Expression type can be only ptr but it's " + subType);
                 }
                 type = new SemVoid();
                 break;
             case NEW:
                 subType = SemAn.exprOfType.get(preExpr.subExpr).actualType();
                 if (!(subType instanceof SemInt)) {
-                    throw new Report.Error(preExpr.subExpr.location, "Expression should be a CONST_INT");
+                    throw new Report.Error(preExpr.subExpr.location, "Expression type can be only int but it's " + subType);
                 }
                 type = new SemPtr(new SemVoid());
                 break;
             case NOT:
                 subType = SemAn.exprOfType.get(preExpr.subExpr).actualType();
                 if (!(subType instanceof SemInt)) {
-                    throw new Report.Error(preExpr.subExpr.location, "Expression should be a CONST_INT");
+                    throw new Report.Error(preExpr.subExpr.location, "Expression type can be only int but it's " + subType);
                 }
                 type = new SemInt();
                 break;
@@ -130,22 +147,43 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
 
         SemType fstSubType = SemAn.exprOfType.get(binExpr.fstSubExpr).actualType();
         SemType sndSubType = SemAn.exprOfType.get(binExpr.sndSubExpr).actualType();
-        if (binExpr.oper == AstBinExpr.Oper.ARR) {
-            if (!(fstSubType instanceof SemArr)) {
-                throw new Report.Error(binExpr.fstSubExpr.location, "Expression should be a variable of type array");
-            }
-            if (!(sndSubType instanceof SemInt)) {
-                throw new Report.Error(binExpr.fstSubExpr.location, "Expression should be a CONST_INT");
-            }
-            SemAn.exprOfType.put(binExpr, ((SemArr) fstSubType).elemType);
-        } else {
-            // TODO: improve check
-            if (!(fstSubType instanceof SemInt && sndSubType instanceof SemInt)
-                    && !(fstSubType instanceof SemChar && sndSubType instanceof SemChar)
-                    && !(fstSubType instanceof SemPtr && sndSubType instanceof SemPtr)) {
-                throw new Report.Error(binExpr.location, "Cannot do binary operation between different types");
-            }
-            SemAn.exprOfType.put(binExpr, new SemInt());
+        switch (binExpr.oper) {
+            case ARR:
+                if (!(fstSubType instanceof SemArr)) {
+                    throw new Report.Error(binExpr.fstSubExpr.location, "Expression should be a variable of type array but it's " + fstSubType);
+                }
+                if (!(sndSubType instanceof SemInt)) {
+                    throw new Report.Error(binExpr.sndSubExpr.location, "Expression type should be int but it's " + sndSubType);
+                }
+                SemAn.exprOfType.put(binExpr, ((SemArr) fstSubType).elemType);
+                break;
+            case ADD:
+            case SUB:
+            case MUL:
+            case DIV:
+            case MOD:
+            case AND:
+            case OR:
+                if (!(fstSubType instanceof SemInt && sndSubType instanceof SemInt)) {
+                    throw new Report.Error(binExpr.location, "Left (" + fstSubType + ") and right (" + sndSubType + ") expression type should be int");
+                }
+                SemAn.exprOfType.put(binExpr, new SemInt());
+                break;
+            case EQU:
+            case GEQ:
+            case LEQ:
+            case LTH:
+            case GTH:
+            case NEQ:
+                if (!(fstSubType instanceof SemInt && sndSubType instanceof SemInt)
+                        && !(fstSubType instanceof SemChar && sndSubType instanceof SemChar)
+                        && !(fstSubType instanceof SemPtr && sndSubType instanceof SemPtr)) {
+                    throw new Report.Error(binExpr.location, "Left (" + fstSubType + ") and right (" + sndSubType + ") expression type should be int, char or ptr");
+                }
+                SemAn.exprOfType.put(binExpr, new SemInt());
+                break;
+            default:
+                throw new Report.Error("Unknown operation: " + binExpr.oper.name());
         }
         return null;
     }
@@ -178,14 +216,14 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
         Vector<AstExpr> exprs = callExpr.args.asts();
         Vector<AstParDecl> pars = funDecl.pars.asts();
         if (exprs.size() != pars.size()) {
-            throw new Report.Error(callExpr.args.location, "Number of arguments doesn't match the number of parameters");
+            throw new Report.Error(callExpr.args.location, "Number of arguments (" + exprs.size() + ") doesn't match the number of parameters (" + pars.size() + ")");
         }
         for (int i = 0; i < exprs.size(); i++) {
             SemType exprType = SemAn.exprOfType.get(exprs.get(i)).actualType();
             SemType parType = SemAn.describesType.get(pars.get(i).type).actualType();
 
             if (!compareTypes(exprType, parType)) {
-                throw new Report.Error(exprs.get(i).location, "Argument " + i + " doesnt match the parameter type");
+                throw new Report.Error(exprs.get(i).location, "Argument " + i + " type (" + exprType + ") doesnt match the parameter type (" + parType + ")");
             }
         }
 
@@ -211,7 +249,7 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
                 (castType instanceof SemChar || castType instanceof SemInt || castType instanceof SemPtr)) {
             SemAn.exprOfType.put(castExpr, castType);
         } else {
-            throw new Report.Error(castExpr.type.location, "Wrong type to cast");
+            throw new Report.Error(castExpr.type.location, "Wrong type to cast. Can only cast between types int, char and ptr.");
         }
         return null;
     }
@@ -259,14 +297,27 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
         SemType fstSubType = SemAn.exprOfType.get(assignStmt.fstSubExpr).actualType();
         SemType sndSubType = SemAn.exprOfType.get(assignStmt.sndSubExpr).actualType();
 
-        if (!(fstSubType instanceof SemInt && sndSubType instanceof SemInt) &&
-                !(fstSubType instanceof SemChar && sndSubType instanceof SemChar) &&
-                !(fstSubType instanceof SemPtr && sndSubType instanceof SemPtr)) {
-            throw new Report.Error(assignStmt.location, "Left-hand side expression is of different type than right-hand side");
+        // check for l-value
+        if (!(assignStmt.fstSubExpr instanceof AstNameExpr
+                || (assignStmt.fstSubExpr instanceof AstPstExpr && ((AstPstExpr) assignStmt.fstSubExpr).oper == AstPstExpr.Oper.PTR)
+                || (assignStmt.fstSubExpr instanceof AstBinExpr && ((AstBinExpr) assignStmt.fstSubExpr).oper == AstBinExpr.Oper.ARR))) {
+            throw new Report.Error(assignStmt.fstSubExpr.location, "Left-side value is not addressable");
         }
 
+        // fstExpr and sndExpr can be only int, char or ptr
+        if (fstSubType instanceof SemArr) {
+            throw new Report.Error(assignStmt.fstSubExpr.location,
+                    "Left-hand side expression type is " + fstSubType + " but can be only int, char or ptr");
+        }
+        if (sndSubType instanceof SemArr) {
+            throw new Report.Error(assignStmt.sndSubExpr.location,
+                    "Right-hand side expression type is " + fstSubType + " but can be only int, char or ptr");
+        }
+
+        // deep type check
         if (!compareTypes(fstSubType, sndSubType)) {
-            throw new Report.Error(assignStmt.location, "Left-hand side expression is of different type than right-hand side");
+            throw new Report.Error(assignStmt.location,
+                    "Types don't match. Left-hand side expression type is " + fstSubType + " but right-hand side type is " + sndSubType + ".");
         }
 
         SemAn.stmtOfType.put(assignStmt, new SemVoid());
@@ -300,16 +351,16 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
 
         SemType condType = SemAn.exprOfType.get(ifStmt.condExpr).actualType();
         if (!(condType instanceof SemInt)) {
-            throw new Report.Error(ifStmt.condExpr.location, "Expression should be of type CONST_INT");
+            throw new Report.Error(ifStmt.condExpr.location, "IF condition expression type should be int but it's " + condType);
         }
         SemType ifType = SemAn.stmtOfType.get(ifStmt.thenBodyStmt).actualType();
         if (!(ifType instanceof SemVoid)) {
-            throw new Report.Error(ifStmt.thenBodyStmt.location, "Statement type should be VOID");
+            throw new Report.Error(ifStmt.thenBodyStmt.location, "IF body Statement type should be void but it's " + ifType);
         }
         if (ifStmt.elseBodyStmt != null) {
             SemType elseType = SemAn.stmtOfType.get(ifStmt.elseBodyStmt).actualType();
             if (!(elseType instanceof SemVoid)) {
-                throw new Report.Error(ifStmt.elseBodyStmt.location, "Statement type should be VOID");
+                throw new Report.Error(ifStmt.elseBodyStmt.location, "ELSE body statement type should be void but it's " + elseType);
             }
         }
 
@@ -330,11 +381,11 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
 
         SemType condType = SemAn.exprOfType.get(whileStmt.condExpr).actualType();
         if (!(condType instanceof SemInt)) {
-            throw new Report.Error(whileStmt.condExpr.location, "Expression should be of type CONST_INT");
+            throw new Report.Error(whileStmt.condExpr.location, "WHILE condition expression type should be int but it's " + condType);
         }
         SemType bodyType = SemAn.stmtOfType.get(whileStmt.bodyStmt).actualType();
         if (!(bodyType instanceof SemVoid)) {
-            throw new Report.Error(whileStmt.bodyStmt.location, "Statement type should be VOID");
+            throw new Report.Error(whileStmt.bodyStmt.location, "WHILE body statement type should be void but it's " + bodyType);
         }
 
         SemAn.stmtOfType.put(whileStmt, new SemVoid());
@@ -363,11 +414,11 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
                 !(returnType instanceof SemChar) &&
                 !(returnType instanceof SemPtr) &&
                 !(returnType instanceof SemVoid)) {
-            throw new Report.Error(funDecl.type.location, "Return type can be only int, char, pointer or void");
+            throw new Report.Error(funDecl.type.location, "Return type can be only int, char, pointer or void but it's " + returnType);
         }
 
         if (!compareTypes(returnType, exprType)) {
-            throw new Report.Error(funDecl.type.location, "Return type is not the same as declared");
+            throw new Report.Error(funDecl.type.location, "Actual return type (" + exprType + ") is not the same as declared return type (" + returnType + ")");
         }
         return null;
     }
@@ -378,15 +429,21 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
         SemName self = SemAn.declaresType.get(typDecl);
         if (self != null) return null;
 
-        if (typDecl.type != null)
-            typDecl.type.accept(this, arg);
-        else
-            throw new Report.InternalError();
+        // first loop
+        if (arg instanceof Integer && (Integer) arg == 1) {
+            SemName name = new SemName(typDecl.name);
+            SemAn.declaresType.put(typDecl, name);
+        } else if (arg instanceof Integer && (Integer) arg == 2) { // second loop
+            if (typDecl.type != null)
+                typDecl.type.accept(this, arg);
+            else
+                throw new Report.InternalError();
 
-        SemType type = SemAn.describesType.get(typDecl.type).actualType();
-        SemName name = new SemName(typDecl.name);
-        name.define(type);
-        SemAn.declaresType.put(typDecl, name);
+            SemName name = SemAn.declaresType.get(typDecl);
+            SemType type = SemAn.describesType.get(typDecl.type).actualType();
+            name.define(type);
+        }
+
         return null;
     }
 
@@ -401,7 +458,7 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
         if (!(type instanceof SemInt) &&
                 !(type instanceof SemChar) &&
                 !(type instanceof SemPtr)) {
-            throw new Report.Error(parDecl.type.location, "Parameter type can be only int, char or pointer");
+            throw new Report.Error(parDecl.type.location, "Parameter type can be only int, char or pointer but it's " + type);
         }
 
         return null;
@@ -430,13 +487,13 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
 
         SemType type = SemAn.describesType.get(arrType.elemType);
         if (type instanceof SemVoid) {
-            throw new Report.Error(arrType.elemType.location, "Array type should not be VOID");
+            throw new Report.Error(arrType.elemType.location, "Array type should not be void");
         }
         if (!(arrType.size instanceof AstConstExpr)) {
-            throw new Report.Error(arrType.size.location,"Array size should be CONST_INT");
+            throw new Report.Error(arrType.size.location,"Array size should be const");
         }
         if (((AstConstExpr) arrType.size).kind != AstConstExpr.Kind.INT) {
-            throw new Report.Error(arrType.size.location, "Array size should be CONST_INT not CONST_" + ((AstConstExpr) arrType.size).kind.name());
+            throw new Report.Error(arrType.size.location, "Array size should be const int and not const " + ((AstConstExpr) arrType.size).kind.name().toLowerCase());
         }
         int size = Integer.parseInt(((AstConstExpr) arrType.size).name);
         if (size <= 0) {
@@ -478,7 +535,7 @@ public class TypeChecker extends AstFullVisitor<Object, Object> {
 
     @Override
     public Object visit(AstTypeName typeName, Object arg) {
-        AstDecl decl = SemAn.declaredAt.get(typeName);
+        AstTypDecl decl = (AstTypDecl) SemAn.declaredAt.get(typeName);
         SemName name = SemAn.declaresType.get(decl);
         if (name == null) {
             decl.accept(this, arg);

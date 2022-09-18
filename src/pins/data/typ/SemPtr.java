@@ -28,4 +28,8 @@ public class SemPtr extends SemType {
 		baseType.log(pfx + "  ");
 	}
 
+	@Override
+	public String toString() {
+		return "ptr(" + this.baseType.toString() + ")";
+	}
 }

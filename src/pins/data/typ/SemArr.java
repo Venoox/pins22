@@ -33,4 +33,8 @@ public class SemArr extends SemType {
 		elemType.log(pfx + "  ");
 	}
 
+	@Override
+	public String toString() {
+		return "array(" + this.numElems + ", " + this.elemType.toString() + ")";
+	}
 }

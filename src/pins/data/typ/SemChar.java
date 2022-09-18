@@ -15,4 +15,8 @@ public class SemChar extends SemType {
 		System.out.println(pfx + "\033[31mChar\033[0m");
 	}
 
+	@Override
+	public String toString() {
+		return "char";
+	}
 }

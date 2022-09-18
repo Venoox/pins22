@@ -14,5 +14,9 @@ public class SemInt extends SemType {
 	public void log(String pfx) {
 		System.out.println(pfx + "\033[31mInt\033[0m");
 	}
-	
+
+	@Override
+	public String toString() {
+		return "int";
+	}
 }
